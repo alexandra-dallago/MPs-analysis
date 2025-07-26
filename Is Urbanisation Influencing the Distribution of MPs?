@@ -115,12 +115,8 @@ BP_2 <- DB_MP %>%
 BP_2
 
 #### Significativta' ####
-DB_MP %>%
-  group_by(City) %>%
-  summarise(p_value_shapiro = shapiro.test(Tot_MP)$p.value)
-
-kruskal.test(Tot_MP ~ City, data = DB_MP) # 0.7942
-
+table_BP2 <- table(DB_MP$City, DB_MP$Ha_MP)
+chisq.test(table_BP2)
 
 
 
