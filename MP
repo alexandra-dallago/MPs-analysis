@@ -1,0 +1,132 @@
+library(readxl)
+library(dplyr)
+library(ggplot2)
+library(lme4)
+library(car)
+library(tidyr)
+library(emmeans)
+library(FSA)   
+library(rcompanion)
+library(patchwork)
+library(dplyr)
+library(ggplot2)
+library(multcomp)
+library(emmeans)
+library(glmmTMB)
+library(viridis)
+library(imageRy)
+library(car)
+library(ggpubr)
+
+########################################### ISTOGRAMMA TOTAL NUMBER OF MPS PER CITY ###########################################
+city_colors <- c(
+  "Bologna" = "#89CFF0",  # blu pastello (sky blue)
+  "Milan"  = "#F4A460"    # arancione sabbia (sandy orange)
+)
+
+site_levels <- unique(DB_MP$Site) %>% sort()  # ordina alfabeticamente per coerenza
+site_colors_base <- setNames(viridis(length(site_levels), option = "D"), site_levels)
+
+site_colors <- alpha(site_colors_base, 0.7)
+
+DB_MP <- DB_MP %>%
+  mutate(
+    City_Tot = reorder(City, Tot_MP, FUN = mean),
+    Site_Tot = reorder(Site, Tot_MP, FUN = mean),
+    City_Type = reorder(City, Type_MP, FUN = mean),
+    Site_Type = reorder(Site, Type_MP, FUN = mean)
+  )
+
+########### GRAFICI ###########
+####### Tot_MP per City #######
+
+BP_1 <- ggplot(DB_MP, aes(x = City_Tot, fill = City_Tot)) +
+  geom_bar(color = "black", width = 0.5) +  # barre più strette
+  scale_fill_manual(values = city_colors, guide = "none") +
+  labs(x = "City", y = "Total Number of MPs", title = "Total Number of MPs per City") +
+  coord_cartesian(ylim = c(0, 500)) +
+  theme_minimal()
+BP_1
+
+#### Significativta' ####
+kruskal.test(Tot_MP ~ City, data = DB_MP) #p-value = 0.7942
+
+########################################### ISTOGRAMMA TOTAL NUMBER OF MPS PER SITE ###########################################
+BP_2 <- ggplot(DB_MP, aes(x = Site_Tot, fill = Site)) +
+  geom_bar(color = "black") +
+  scale_fill_manual(values = site_colors, guide = "none") +
+  labs(x = "Site", y = "Total Number of MPs", title = "Total Number of MPs per Site") +
+  theme_minimal()
+BP_2
+
+#### Significatività ####
+kruskal.test(Tot_MP ~ Site, data = DB_MP) #5.337e-13
+dunn.test(DB_MP$Tot_MP, DB_MP$Site, method = "bonferroni") 
+
+#Dumbo vs CREAA → p = 0.0021 * (Crea > dumbo)
+#Giardini vs CREAA → p = 0.0187 * (Crea > giardini)
+#Velodromo vs Bam → p = 0.0000 * (Velodromo > Bam)
+#Parco Nord vs Bam → p = 0.0000 * (pn > Bam)
+
+#CREAA vs Bam → p = 0.0000 *
+#Giardini vs Bam → p = 0.0001 *
+#Parco Nord vs Dumbo → p = 0.0311 *
+#Velodromo vs Dumbo → p = 0.0133 *
+
+########################################### ISTOGRAMMA NUMERO DI INDIVIDUI CHE HANNO E NON HANNO LE MP PER CITTA ###########################################
+DB_MP <- DB_MP %>%
+  mutate(Ha_MP = ifelse(Tot_MP > 0, "With MP", "Without MP"))
+
+stat_summary <- DB_MP %>%
+  group_by(City) %>%
+  summarise(
+    Min_MP = min(Tot_MP, na.rm = TRUE),
+    Max_MP = max(Tot_MP, na.rm = TRUE),
+    Mean_MP = round(mean(Tot_MP, na.rm = TRUE), 1)
+  )
+
+caption_text <- stat_summary %>%
+  mutate(text = paste0(City, ": min = ", Min_MP, ", max = ", Max_MP, ", mean = ", Mean_MP)) %>%
+  pull(text) %>%
+  paste(collapse = " | ")
+
+mp_fill <- c(
+  "With MP" = alpha("#882255", 0.8),   # viola
+  "Without MP" = alpha("#EE7733", 0.8) # arancione forte
+)
+
+BP_2 <- DB_MP %>%
+  group_by(City, Ha_MP) %>%
+  summarise(N_Individui = n(), .groups = "drop") %>%
+  ggplot(aes(x = City, y = N_Individui, fill = Ha_MP)) +
+  geom_bar(stat = "identity", color = "black", width = 0.6) +
+  scale_fill_manual(values = mp_fill, name = "Individuals") +
+  labs(
+    title = "Number of Individuals With and Without MPs per City",
+    x = "City",
+    y = "Number of Individuals",
+    caption = caption_text
+  ) +
+  theme_minimal() +
+  theme(
+    legend.position = "top",
+    plot.caption = element_text(size = 8, face = "italic", hjust = 0)
+  )
+BP_2
+
+#### Significativta' ####
+DB_MP %>%
+  group_by(City) %>%
+  summarise(p_value_shapiro = shapiro.test(Tot_MP)$p.value)
+
+kruskal.test(Tot_MP ~ City, data = DB_MP) # 0.7942
+
+
+
+
+
+
+
+
+
+
