@@ -1,0 +1,76 @@
+############################## PER CITTA' ##############################
+
+DB_trend <- DB_MP %>%
+  group_by(City, Date) %>%
+  summarise(Total_MP = sum(Tot_MP), .groups = "drop")
+
+mesi_italiani <- c("May", "June", "July", "August")
+DB_trend$Date <- factor(DB_trend$Date, levels = mesi_italiani)
+
+city_colors <- c("Bologna" = "#89CFF0", "Milan" = "#F4A460")
+
+ggplot(DB_trend, aes(x = Date, y = Total_MP, color = City, group = City)) +
+  geom_line(linewidth = 1.2) +
+  geom_point(size = 3) +
+  scale_color_manual(values = city_colors) +
+  labs(
+    title = "Temporal Trend of Total MPs per City",
+    x = "Month", y = "Total Number of MPs ", color = "City"
+  ) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+############################## TREND INDIVIDUI CON O SENZA MP ##############################
+DB_MP4 <- DB_MP %>%
+  mutate(MP_presence = ifelse(Tot_MP > 0, "With MP", "Without MP"))
+
+DB_MP4$Date <- factor(DB_MP4$Date, levels = c("May", "June", "July", "August"))
+
+df_plot <- DB_MP4 %>%
+  group_by(Date, City, MP_presence) %>%
+  summarise(Count = n(), .groups = "drop")
+
+df_stats <- DB_MP4 %>%
+  group_by(Date, City) %>%
+  summarise(
+    Mean_MP = round(mean(Tot_MP), 2),
+    Min_MP = min(Tot_MP),
+    Max_MP = max(Tot_MP),
+    .groups = "drop")
+
+df_labels <- df_stats %>%
+  group_by(City) %>%
+  summarise(
+    label = paste0("Mean: ", round(mean(Mean_MP), 2),
+                   "\nMin: ", min(Min_MP),
+                   "\nMax: ", max(Max_MP)))
+
+ggplot(df_plot, aes(x = Date, y = Count, fill = MP_presence)) +
+  geom_bar(stat = "identity", position = position_stack(), width = 0.6,
+           color = "black", alpha = 0.9) +
+  facet_wrap(~City) +
+  scale_fill_manual(values = c("With MP" = "#882255", "Without MP" = "#EE7733")) +
+  labs(
+    title = "Monthly trend of individuals with and without Microplastics",
+    x = "Month of collection",
+    y = "Number of individuals",
+    fill = "Microplastics"
+  ) +
+  geom_text(data = df_labels, aes(x = 1, y = Inf, label = label),
+            inherit.aes = FALSE, vjust = 1.5, hjust = -0.1, size = 4, fontface = "italic") +
+  theme_minimal(base_size = 14) +
+  theme(
+    plot.title = element_text(hjust = 0.5, face = "bold"),
+    strip.text = element_text(face = "bold"))
+
+cat("\nSummary statistics (Mean, Min, Max of Total Microplastics):\n")
+print(df_stats)
+
+### SIGNIFICATIVITA' TREND TEMPORALE CON O SENZA MP ###
+data_city <- DB_MP4 %>% filter(City == city)
+
+kruskal.test(Tot_MP ~ Date, data = DB_MP4 %>% filter(City == "Bologna")) #0.009603
+kruskal.test(Tot_MP ~ Date, data = DB_MP4 %>% filter(City == "Milan")) #8.534e-06
+
+dunnTest(Tot_MP ~ Date, data = DB_MP4 %>% filter(City == "Bologna"), method = "bonferroni")
+dunnTest(Tot_MP ~ Date, data = DB_MP4 %>% filter(City == "Milan"), method = "bonferroni")
