@@ -1,0 +1,97 @@
+################################# MP PER ZONE DEL CORPO PER CITTA' #################################
+######### ISTOGRAMMA  ###############
+body_parts <- c("Head", "Torax", "Abdomen", "Legs", "Wings")
+
+MP_by_body_part_city <- DB_MP %>%
+  group_by(City) %>%
+  summarise(across(all_of(body_parts), sum, na.rm = TRUE)) %>%
+  pivot_longer(cols = all_of(body_parts), names_to = "Body_Part", values_to = "Total_MP") %>%
+  ungroup() %>%
+  group_by(Body_Part) %>%
+  mutate(Total_all_cities = sum(Total_MP)) %>%
+  ungroup()
+
+levels_ordered <- MP_by_body_part_city %>%
+  distinct(Body_Part, Total_all_cities) %>%
+  arrange(desc(Total_all_cities)) %>%   # <-- qui cambia in desc()
+  pull(Body_Part)
+
+MP_by_body_part_city <- MP_by_body_part_city %>%
+  mutate(Body_Part = factor(Body_Part, levels = levels_ordered))
+
+city_colors <- c("Bologna" = "#89CFF0", "Milan" = "#F4A460")
+
+ggplot(MP_by_body_part_city, aes(x = Body_Part, y = Total_MP, fill = City)) +
+  geom_col(position = "dodge", color = "black", alpha = 0.7) +
+  scale_fill_manual(values = city_colors) +
+  labs(
+    title = "Total Number of MPs per Body Part",
+    x = "Body Part",
+    y = "Total Number of MPs",
+    fill = "City"
+  ) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+################################# MP PER PARTI DEL CORPO PER SITO #################################
+body_parts <- c("Head", "Torax", "Abdomen", "Legs", "Wings")
+
+site_colors <- c(
+  "Bam" = "#440154",
+  "Parco Nord" = "#21918C",
+  "Velodromo" = "#FDE725",
+  # Bologna
+  "CREAA" = "#3B528B",
+  "Giardini Margherita" = "#5DC863",
+  "Dumbo" = "#FCA50A")
+
+plot_city <- function(city_name) {
+  
+  data_city <- DB_MP %>%
+    filter(City == city_name) %>%
+    group_by(Site) %>%
+    summarise(across(all_of(body_parts), sum, na.rm = TRUE), .groups = "drop") %>%
+    pivot_longer(cols = all_of(body_parts), names_to = "Body_Part", values_to = "Total_MP") %>%
+    group_by(Body_Part) %>%
+    mutate(Total_all_sites = sum(Total_MP)) %>%
+    ungroup()
+  
+  levels_body_parts <- data_city %>%
+    distinct(Body_Part, Total_all_sites) %>%
+    arrange(desc(Total_all_sites)) %>%
+    pull(Body_Part)
+  
+  data_city <- data_city %>%
+    mutate(Body_Part = factor(Body_Part, levels = levels_body_parts))
+  
+  site_totals <- data_city %>%
+    group_by(Site) %>%
+    summarise(Site_Total = sum(Total_MP)) %>%
+    arrange(desc(Site_Total))
+
+  levels_sites <- site_totals %>%
+    arrange(Site_Total) %>%  # senza desc per ordine crescente
+    pull(Site)
+  
+  data_city <- data_city %>%
+    mutate(Site = factor(Site, levels = levels_sites))
+
+  site_colors_city <- site_colors[levels_sites]
+  
+  ggplot(data_city, aes(x = Body_Part, y = Total_MP, fill = Site)) +
+    geom_col(position = "dodge", color = "black", alpha = 0.7) +
+    scale_fill_manual(values = site_colors_city) +
+    labs(
+      title = paste("Total Number of MPs per Body Part in", city_name),
+      x = "Body Part",
+      y = "Total Number of MPs",
+      fill = "Site"
+    ) +
+    theme_minimal() +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))}
+
+plot_bologna <- plot_city("Bologna")
+plot_milano <- plot_city("Milan")
+plot_bologna + plot_milano
+
+####### SIGNIFICATIVITA' #######
