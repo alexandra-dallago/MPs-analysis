@@ -61,7 +61,7 @@ BP_2
 
 #### Significatività ####
 kruskal.test(Tot_MP ~ Site, data = DB_MP) #5.337e-13
-dunn.test(DB_MP$Tot_MP, DB_MP$Site, method = "bonferroni") 
+dunnTest(DB_MP$Tot_MP, DB_MP$Site, method = "bonferroni") 
 
 #Dumbo vs CREAA → p = 0.0021 * (Crea > dumbo)
 #Giardini vs CREAA → p = 0.0187 * (Crea > giardini)
