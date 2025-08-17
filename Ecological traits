@@ -4,6 +4,12 @@ library(ggplot2)
 library(viridis)
 library(patchwork)
 
+library(dplyr)
+library(forcats)
+library(ggplot2)
+library(viridis)
+library(patchwork)
+
 ######### Pulizia e preparazione dataset #########
 DB_GLM_clean <- DB_GLM %>%
   filter(Sex == "F", !is.na(Nest), !is.na(Scopa), !is.na(Tot_MP), !is.na(City)) %>%
@@ -12,68 +18,70 @@ DB_GLM_clean <- DB_GLM %>%
     Scopa = factor(Scopa),
     City = factor(City)
   ) %>%
-  # rinomina i livelli "C" in "BROOD PARASITIC SPECIES"
+  # rinomina i livelli secondo le tue abbreviazioni
   mutate(
     Nest = fct_recode(Nest,
-                      "BROOD PARASITIC SPECIES" = "C"),
+                      "Ground Nest" = "G",
+                      "Stem Nest" = "S",
+                      "Cavity Nest" = "C",
+                      "Brood parasitic" = "K"),
     Scopa = fct_recode(Scopa,
-                       "BROOD PARASITIC SPECIES" = "C")
+                       "Igluvia" = "I",
+                       "Leg Scopae" = "Z",
+                       "Ventral Scopae" = "V",
+                       "Brood parasitic" = "K",
+                       "Corbiculae" = "C")
   ) %>%
   droplevels()
 
-######### Colori per i livelli #########
+######### Colori #########
 nest_levels <- levels(DB_GLM_clean$Nest)
 scopa_levels <- levels(DB_GLM_clean$Scopa)
 
 nest_colors <- setNames(scales::alpha(viridis(length(nest_levels)), 0.6), nest_levels)
 scopa_colors <- setNames(scales::alpha(viridis(length(scopa_levels)), 0.6), scopa_levels)
 
-######### Funzione per ordinare i livelli per mediana #########
-get_order <- function(df, var, city) {
-  df %>%
-    filter(City == city) %>%
-    group_by(!!sym(var)) %>%
-    summarise(med = median(Tot_MP)) %>%
-    arrange(med) %>%
-    pull(!!sym(var))
-}
+######### Ordinamento crescente globale basato sulla mediana #########
+nest_order <- DB_GLM_clean %>%
+  group_by(Nest) %>%
+  summarise(med = median(Tot_MP)) %>%
+  arrange(med) %>%
+  pull(Nest)
 
-variables <- c("Nest", "Scopa")
-cities <- unique(DB_GLM_clean$City)
-plots <- list()
+scopa_order <- DB_GLM_clean %>%
+  group_by(Scopa) %>%
+  summarise(med = median(Tot_MP)) %>%
+  arrange(med) %>%
+  pull(Scopa)
 
-######### Creazione dei boxplot #########
-for (var in variables) {
-  for (city in cities) {
-    df_city <- DB_GLM_clean %>% filter(City == city)
-    
-    ord <- get_order(DB_GLM_clean, var, city)
-    
-    df_city <- df_city %>%
-      mutate(!!var := factor(!!sym(var), levels = ord)) %>%
-      droplevels()
-    
-    pal <- if (var == "Nest") nest_colors else scopa_colors
-    
-    p <- ggplot(df_city, aes_string(x = var, y = "Tot_MP", fill = var)) +
-      geom_boxplot() +
-      scale_fill_manual(values = pal, drop = FALSE) +
-      labs(title = paste0("Total Number of MPs per ", var, " - ", city, " (females only)"),
-           x = var, y = "Total Number of MPs", fill = var) +
-      theme_minimal() +
-      theme(axis.text.x = element_text(angle = 30, hjust = 1))
-    
-    plots[[paste(var, city, sep = "_")]] <- p
-  }
-}
+DB_GLM_clean <- DB_GLM_clean %>%
+  mutate(
+    Nest = factor(Nest, levels = nest_order),
+    Scopa = factor(Scopa, levels = scopa_order)
+  )
 
-######### Combinazione dei plot #########
-BOX_SCOPA <- plots$Scopa_Bologna + plots$Scopa_Milan + 
-  plot_layout(ncol = 2, guides = "collect") & theme(legend.position = "bottom")
+######### Grafico unico per Nest #########
+plot_nest <- ggplot(DB_GLM_clean, aes(x = Nest, y = Tot_MP, fill = Nest)) +
+  geom_boxplot() +
+  facet_wrap(~City) +
+  scale_fill_manual(values = nest_colors, drop = FALSE) +
+  labs(title = "Total Number of MPs per Nest (females only)",
+       x = "Nest type", y = "Total Number of MPs", fill = "Nest type") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 30, hjust = 1),
+        legend.position = "bottom")
 
-BOX_NEST <- plots$Nest_Bologna + plots$Nest_Milan + 
-  plot_layout(ncol = 2, guides = "collect") & theme(legend.position = "bottom")
+######### Grafico unico per Scopa #########
+plot_scopa <- ggplot(DB_GLM_clean, aes(x = Scopa, y = Tot_MP, fill = Scopa)) +
+  geom_boxplot() +
+  facet_wrap(~City) +
+  scale_fill_manual(values = scopa_colors, drop = FALSE) +
+  labs(title = "Total Number of MPs per Scopa (females only)",
+       x = "Scopa type", y = "Total Number of MPs", fill = "Scopa type") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 30, hjust = 1),
+        legend.position = "bottom")
 
 ######### Visualizzazione #########
-BOX_SCOPA
-BOX_NEST
+plot_nest
+plot_scopa
