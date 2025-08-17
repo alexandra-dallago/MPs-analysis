@@ -1,0 +1,79 @@
+library(dplyr)
+library(forcats)
+library(ggplot2)
+library(viridis)
+library(patchwork)
+
+######### Pulizia e preparazione dataset #########
+DB_GLM_clean <- DB_GLM %>%
+  filter(Sex == "F", !is.na(Nest), !is.na(Scopa), !is.na(Tot_MP), !is.na(City)) %>%
+  mutate(
+    Nest = factor(Nest),
+    Scopa = factor(Scopa),
+    City = factor(City)
+  ) %>%
+  # rinomina i livelli "C" in "BROOD PARASITIC SPECIES"
+  mutate(
+    Nest = fct_recode(Nest,
+                      "BROOD PARASITIC SPECIES" = "C"),
+    Scopa = fct_recode(Scopa,
+                       "BROOD PARASITIC SPECIES" = "C")
+  ) %>%
+  droplevels()
+
+######### Colori per i livelli #########
+nest_levels <- levels(DB_GLM_clean$Nest)
+scopa_levels <- levels(DB_GLM_clean$Scopa)
+
+nest_colors <- setNames(scales::alpha(viridis(length(nest_levels)), 0.6), nest_levels)
+scopa_colors <- setNames(scales::alpha(viridis(length(scopa_levels)), 0.6), scopa_levels)
+
+######### Funzione per ordinare i livelli per mediana #########
+get_order <- function(df, var, city) {
+  df %>%
+    filter(City == city) %>%
+    group_by(!!sym(var)) %>%
+    summarise(med = median(Tot_MP)) %>%
+    arrange(med) %>%
+    pull(!!sym(var))
+}
+
+variables <- c("Nest", "Scopa")
+cities <- unique(DB_GLM_clean$City)
+plots <- list()
+
+######### Creazione dei boxplot #########
+for (var in variables) {
+  for (city in cities) {
+    df_city <- DB_GLM_clean %>% filter(City == city)
+    
+    ord <- get_order(DB_GLM_clean, var, city)
+    
+    df_city <- df_city %>%
+      mutate(!!var := factor(!!sym(var), levels = ord)) %>%
+      droplevels()
+    
+    pal <- if (var == "Nest") nest_colors else scopa_colors
+    
+    p <- ggplot(df_city, aes_string(x = var, y = "Tot_MP", fill = var)) +
+      geom_boxplot() +
+      scale_fill_manual(values = pal, drop = FALSE) +
+      labs(title = paste0("Total Number of MPs per ", var, " - ", city, " (females only)"),
+           x = var, y = "Total Number of MPs", fill = var) +
+      theme_minimal() +
+      theme(axis.text.x = element_text(angle = 30, hjust = 1))
+    
+    plots[[paste(var, city, sep = "_")]] <- p
+  }
+}
+
+######### Combinazione dei plot #########
+BOX_SCOPA <- plots$Scopa_Bologna + plots$Scopa_Milan + 
+  plot_layout(ncol = 2, guides = "collect") & theme(legend.position = "bottom")
+
+BOX_NEST <- plots$Nest_Bologna + plots$Nest_Milan + 
+  plot_layout(ncol = 2, guides = "collect") & theme(legend.position = "bottom")
+
+######### Visualizzazione #########
+BOX_SCOPA
+BOX_NEST
