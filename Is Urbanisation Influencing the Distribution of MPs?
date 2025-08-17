@@ -52,11 +52,39 @@ BP_1
 kruskal.test(Tot_MP ~ City, data = DB_MP) #p-value = 0.7942
 
 ########################################### ISTOGRAMMA TOTAL NUMBER OF MPS PER SITE ###########################################
-BP_2 <- ggplot(DB_MP, aes(x = Site_Tot, fill = Site)) +
+library(ggplot2)
+library(dplyr)
+library(patchwork)
+library(viridis)
+library(scales)
+
+library(ggplot2)
+library(dplyr)
+library(scales)
+
+# Palette fissa coerente con grafico ANOVA
+site_colors <- c(
+  "BO_Low" = "#5DC863",
+  "BO_Medium" = "#3B528B",
+  "BO_High" = "#FCA50A",
+  "MI_Low" = "#21918C",
+  "MI_Medium" = "#FDE725",
+  "MI_High" = "#440154"
+)
+site_colors <- alpha(site_colors, 0.7)  # trasparenza 70%
+
+# Grafico a barre
+BP_2 <- ggplot(DB_MP, aes(x = Site_CityLabel, fill = Site_CityLabel)) +
   geom_bar(color = "black") +
-  scale_fill_manual(values = site_colors, guide = "none") +
-  labs(x = "Site", y = "Total Number of MPs", title = "Total Number of MPs per Site") +
-  theme_minimal()
+  scale_fill_manual(values = site_colors, name = "Site") +
+  labs(x = "Site", y = "Number of Individuals") +
+  facet_wrap(~City, ncol = 2, scales = "free_x") +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    strip.text = element_text(size = 12, face = "bold")
+  )
+
 BP_2
 
 #### Significatività ####
@@ -120,6 +148,70 @@ chisq.test(table_BP2)
 
 
 
+########################################### ANOVA #########################################################
+library(dplyr)
+library(ggplot2)
+library(FSA)  # per dunnTest
+
+# Creare colonna con nomi siti modificati
+DB_ANOVA <- DB_MP %>%
+  mutate(Site_CityLabel = case_when(
+    Site == "CREAA" ~ "BO_Medium",
+    Site == "Dumbo" ~ "BO_High",
+    Site == "Giardini Margherita" ~ "BO_Low",
+    Site == "Parco Nord" ~ "MI_Low",
+    Site == "Velodromo" ~ "MI_Medium",
+    Site == "Bam" ~ "MI_High",
+    TRUE ~ Site
+  ))
+
+# Ordinare i livelli da Low a High
+DB_ANOVA$Site_CityLabel <- factor(DB_ANOVA$Site_CityLabel,
+                                  levels = c("BO_Low","BO_Medium","BO_High",
+                                             "MI_Low","MI_Medium","MI_High"))
+
+# 2.1 ANOVA
+aov_city_site_Tot_MP <- aov(Tot_MP ~ City + Site_CityLabel, data = DB_ANOVA)
+summary(aov_city_site_Tot_MP)
+
+# Residui
+residui_Tot_MP <- residuals(aov_city_site_Tot_MP)
+
+# Test normalità residui
+shapiro.test(residui_Tot_MP)
+qqnorm(residui_Tot_MP)
+qqline(residui_Tot_MP)
+
+# Kruskal-Wallis se residui non normali
+kruskal_city_Tot_MP <- kruskal.test(Tot_MP ~ City, data = DB_ANOVA)
+kruskal_site_Tot_MP <- kruskal.test(Tot_MP ~ Site_CityLabel, data = DB_ANOVA)
+
+# Post-hoc Dunn test
+dunn_site_Tot_MP <- dunnTest(Tot_MP ~ Site_CityLabel, data = DB_ANOVA, method = "bonferroni")
+
+# Palette fissa per i siti
+site_colors <- c(
+  "BO_Low" = "#5DC863",
+  "BO_Medium" = "#3B528B",
+  "BO_High" = "#FCA50A",
+  "MI_Low" = "#21918C",
+  "MI_Medium" = "#FDE725",
+  "MI_High" = "#440154"
+)
+
+# Boxplot con facet per città
+ggplot(DB_ANOVA, aes(x = Site_CityLabel, y = Tot_MP, fill = Site_CityLabel)) +
+  geom_boxplot(alpha = 0.6) +
+  scale_fill_manual(values = site_colors) +
+  labs(
+    title = "Total Number of MPs per Site and City",
+    x = "Site",
+    y = "Total MPs"
+  ) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+        legend.position = "right") +
+  facet_wrap(~City, scales = "free_x", nrow = 1)
 
 
 
