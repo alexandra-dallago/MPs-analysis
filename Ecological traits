@@ -4,13 +4,133 @@ library(ggplot2)
 library(viridis)
 library(patchwork)
 
-library(dplyr)
-library(forcats)
-library(ggplot2)
-library(viridis)
-library(patchwork)
+############### GENUS, SEX, DIMENSION ###############
+### GLM ###
+##### Tot_MP influenzato da Genus, Sex, Dimensione ##### 
+mod_qp1_Tot_MP <- glm(Tot_MP ~ Genus + Sex + Dimensions, 
+                      family = quasipoisson, data = DB_GLM)
+summary(mod_qp1_Tot_MP)
 
-######### Pulizia e preparazione dataset #########
+#### SIGNIFICATIVA' ###
+#SHAPIRO
+residui12 <- residuals(mod_qp1_Tot_MP, type = "pearson")
+shapiro.test(residui12)
+
+#kruskal PER sex e dimensions
+kruskal.test(Tot_MP ~ Sex, data = DB_GLM)
+kruskal.test(Tot_MP ~ Dimensions, data = DB_GLM)
+
+#Dunn 
+dunnTest(Tot_MP ~ Sex, data = DB_GLM, method = "bonferroni")
+dunnTest(Tot_MP ~ Dimensions, data = DB_GLM, method = "bonferroni")
+
+###  grafici  ####
+### genere ###
+
+#Riordina Genus in base alla mediana decrescente di Tot_MP
+DB_MP1 <- DB_GLM %>%
+  mutate(Genus = reorder(Genus, Tot_MP, FUN = median, creasing = TRUE))
+
+#Boxplot Genus ordinato 
+ggplot(DB_MP1, aes(x = Genus, y = Tot_MP, fill = Genus)) +
+  geom_boxplot(alpha = 0.6) +
+  labs(title = "Total of MPs per Genus",
+       x = "Genere", y = "Tot_MP") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  scale_fill_viridis_d(option = "viridis", guide = "none")
+
+#2. tot MPs per Genus di Bolo e MIlano 
+#Bologna - ordina Genus per mediana crescente di Tot_MP
+DB_bologna <- DB_MP1 %>% filter(City == "Bologna")
+
+order_bolo <- DB_bologna %>%
+  group_by(Genus) %>%
+  summarise(mediana = median(Tot_MP, na.rm = TRUE)) %>%
+  arrange(mediana) %>%
+  pull(Genus)
+
+DB_bologna <- DB_bologna %>%
+  mutate(Genus_ord = factor(Genus, levels = order_bolo))
+
+p_bolo <- ggplot(DB_bologna, aes(x = Genus_ord, y = Tot_MP, fill = Genus_ord)) +
+  geom_boxplot(alpha = 0.6) +
+  labs(title = "Total MPs per Genus - Bologna",
+       x = "Genus", y = "Tot_MP") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  scale_fill_viridis_d(option = "viridis", guide = "none")
+
+# Milano - ordina Genus per mediana crescente di Tot_MP
+DB_milan <- DB_MP1 %>% filter(City == "Milan")
+
+order_milan <- DB_milan %>%
+  group_by(Genus) %>%
+  summarise(mediana = median(Tot_MP, na.rm = TRUE)) %>%
+  arrange(mediana) %>%
+  pull(Genus)
+
+DB_milan <- DB_milan %>%
+  mutate(Genus_ord = factor(Genus, levels = order_milan))
+
+p_milan <- ggplot(DB_milan, aes(x = Genus_ord, y = Tot_MP, fill = Genus_ord)) +
+  geom_boxplot(alpha = 0.6) +
+  labs(title = "Total MPs per Genus - Milan",
+       x = "Genus", y = "Tot_MP") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  scale_fill_viridis_d(option = "viridis", guide = "none")
+
+# Stampa i grafici
+print(p_bolo)
+print(p_milan)
+p_bolo+p_milan
+
+######### dimensions ##########
+# Filtra Bologna e Milano
+DB_bologna <- DB_MP1 %>% filter(City == "Bologna")
+DB_milan <- DB_MP1 %>% filter(City == "Milan")
+
+# Bologna e  milano  - Dimensions
+p_dim_bolo <- ggplot(DB_bologna, aes(x = Dimensions, y = Tot_MP, fill = Dimensions)) +
+  geom_boxplot(alpha = 0.6) +
+  labs(title = "Total MPs per Dimensions - Bologna",
+       x = "Dimensions", y = "Tot_MP") +
+  theme_minimal() +
+  scale_fill_viridis_d(option = "viridis", direction = -1)
+
+p_dim_milan <- ggplot(DB_milan, aes(x = Dimensions, y = Tot_MP, fill = Dimensions)) +
+  geom_boxplot(alpha = 0.6) +
+  labs(title = "Total MPs per Dimensions - Milan",
+       x = "Dimensions", y = "Tot_MP") +
+  theme_minimal() +
+  scale_fill_viridis_d(option = "viridis", direction = -1)
+
+BOX_DIMENSION <- p_dim_bolo  + p_dim_milan
+BOX_DIMENSION
+
+######### sex ##########
+# Bologna e milano - Sex
+p_sex_bolo <- ggplot(DB_bologna, aes(x = Sex, y = Tot_MP, fill = Sex)) +
+  geom_boxplot(alpha = 0.6) +
+  labs(title = "Total MPs per Sex - Bologna",
+       x = "Sex", y = "Tot_MP") +
+  theme_minimal() +
+  scale_fill_viridis_d(option = "viridis")
+
+p_sex_milan <- ggplot(DB_milan, aes(x = Sex, y = Tot_MP, fill = Sex)) +
+  geom_boxplot(alpha = 0.6) +
+  labs(title = "Total MPs per Sex - Milan",
+       x = "Sex", y = "Tot_MP") +
+  theme_minimal() +
+  scale_fill_viridis_d(option = "viridis")
+
+BOX_SEX <- p_sex_bolo  +  p_sex_milan
+BOX_SEX
+
+############### NEST E SCOPA ###############
+
+### Pulizia e preparazione dataset ###
 DB_GLM_clean <- DB_GLM %>%
   filter(Sex == "F", !is.na(Nest), !is.na(Scopa), !is.na(Tot_MP), !is.na(City)) %>%
   mutate(
@@ -34,14 +154,14 @@ DB_GLM_clean <- DB_GLM %>%
   ) %>%
   droplevels()
 
-######### Colori #########
+### Colori ###
 nest_levels <- levels(DB_GLM_clean$Nest)
 scopa_levels <- levels(DB_GLM_clean$Scopa)
 
 nest_colors <- setNames(scales::alpha(viridis(length(nest_levels)), 0.6), nest_levels)
 scopa_colors <- setNames(scales::alpha(viridis(length(scopa_levels)), 0.6), scopa_levels)
 
-######### Ordinamento crescente globale basato sulla mediana #########
+### Ordinamento crescente globale basato sulla mediana ###
 nest_order <- DB_GLM_clean %>%
   group_by(Nest) %>%
   summarise(med = median(Tot_MP)) %>%
@@ -60,7 +180,7 @@ DB_GLM_clean <- DB_GLM_clean %>%
     Scopa = factor(Scopa, levels = scopa_order)
   )
 
-######### Grafico unico per Nest #########
+### Grafico unico per Nest ###
 plot_nest <- ggplot(DB_GLM_clean, aes(x = Nest, y = Tot_MP, fill = Nest)) +
   geom_boxplot() +
   facet_wrap(~City) +
@@ -71,7 +191,7 @@ plot_nest <- ggplot(DB_GLM_clean, aes(x = Nest, y = Tot_MP, fill = Nest)) +
   theme(axis.text.x = element_text(angle = 30, hjust = 1),
         legend.position = "bottom")
 
-######### Grafico unico per Scopa #########
+### Grafico unico per Scopa ###
 plot_scopa <- ggplot(DB_GLM_clean, aes(x = Scopa, y = Tot_MP, fill = Scopa)) +
   geom_boxplot() +
   facet_wrap(~City) +
@@ -82,6 +202,6 @@ plot_scopa <- ggplot(DB_GLM_clean, aes(x = Scopa, y = Tot_MP, fill = Scopa)) +
   theme(axis.text.x = element_text(angle = 30, hjust = 1),
         legend.position = "bottom")
 
-######### Visualizzazione #########
+### Visualizzazione ###
 plot_nest
 plot_scopa
