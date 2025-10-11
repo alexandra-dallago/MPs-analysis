@@ -1,0 +1,148 @@
+######################## grafico a torta TIPOLOGIA MPS ######################## 
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(viridis)
+
+# 1. Colonne delle tipologie di microplastiche
+tipi_mp <- c("F_White","F_Black", "F_Red", "F_Blue", "F_Green","F_Violet", "S_White", "S_Green", "St_White", "Others", "Xshape")
+
+type_colors <- setNames(c(
+  "#F0F0F0",  # F_White   - arancio chiaro
+  "#4D4D4D",  # F_Black   - nero
+  "#E63946",  # F_Red     - rosso
+  "#4D9DE0",  # F_Blue    - blu scuro
+  "#3CB043",  # F_Green   - verde
+  "#9966CC",  # F_Violet  - viola
+  "#708090",  # S_White   - rosa chiaro
+  "#B2D8B2",  # S_Green   - verde chiaro
+  "#C080A1",  # St_White  - lilla chiaro
+  "#FFA500",  # Others    - azzurro chiaro
+  "#FFEB84"   # Xshape    - grigio chiaro
+), tipi_mp)
+
+# 2. Aggrega dati per città
+MP_city <- DB_MP %>%
+  group_by(City) %>%
+  summarise(across(all_of(tipi_mp), sum, na.rm = TRUE), .groups = "drop") %>%
+  pivot_longer(cols = all_of(tipi_mp), names_to = "Type", values_to = "Total")
+
+# 3. Filtra valori >0 (opzionale)
+MP_city_filtered <- MP_city %>% filter(Total > 0)
+
+# 4. Ordina i livelli di 'Type' in base alla somma totale su entrambe le città (per legenda coerente)
+levels_order <- MP_city_filtered %>%
+  group_by(Type) %>%
+  summarise(TotSum = sum(Total)) %>%
+  arrange(desc(TotSum)) %>% 
+  pull(Type)
+
+# 5. Trasforma 'Type' in fattore con livelli ordinati
+MP_city_filtered <- MP_city_filtered %>%
+  mutate(Type = factor(Type, levels = levels_order))
+
+# 6. Dividi per città
+MP_Bologna <- MP_city_filtered %>% filter(City == "Bologna")
+MP_Milano <- MP_city_filtered %>% filter(City == "Milan")
+
+# 7. Grafico torta Bologna
+Pie_Bologna <- ggplot(MP_Bologna, aes(x = factor(1), y = Total, fill = Type)) +
+  geom_bar(stat = "identity", width = 1, color = "black") +
+  coord_polar("y") +
+  scale_fill_manual(values = type_colors) +
+  labs(
+    title = "Bologna",
+    fill = "Microplastic Type"
+  ) +
+  theme_void() +
+  theme(
+    legend.position = "right",
+    plot.title = element_text(face = "bold", size = 14)
+  )
+
+# 8. Grafico torta Milano
+Pie_Milano <- ggplot(MP_Milano, aes(x = factor(1), y = Total, fill = Type)) +
+  geom_bar(stat = "identity", width = 1, color = "black") +
+  coord_polar("y") +
+  scale_fill_manual(values = type_colors) +
+  labs(
+    title = "Milan",
+    fill = "Microplastic Type"
+  ) +
+  theme_void() +
+  theme(
+    legend.position = "right",
+    plot.title = element_text(face = "bold", size = 14)
+  )
+Pie_Milano+ Pie_Bologna
+
+######################## grafico a torta ANALISI CHIMICHE ######################## 
+
+library(ggplot2)
+library(dplyr)
+library(cowplot)
+library(scales)
+
+df <- chemical_analysys
+
+# Palette fornita
+manual_colors <- alpha(c(
+  "#66c2a5", "#fc8d62", "#8da0cb", "#e78ac3", "#a6d854",
+  "#ffd92f", "#e5c494", "#b3b3b3", "#80b1d3", "#fdb462",
+  "#bebada", "#ccebc5", "#d9d9d9"
+), 0.7)
+
+# Colori per tutti i polimeri
+n_polymers <- length(unique(df$Polymer))
+polymer_colors <- setNames(manual_colors[1:n_polymers], sort(unique(df$Polymer)))
+
+# Funzione grafico a torta senza legenda
+make_pie <- function(cityname) {
+  city_data <- df %>% filter(City == cityname)
+  ggplot(city_data, aes(x = "", y = Percentage, fill = Polymer)) +
+    geom_bar(stat = "identity", width = 1, color = "black", size = 0.3) +
+    coord_polar("y") +
+    scale_fill_manual(values = polymer_colors) +
+    theme_void() +
+    ggtitle(cityname) +
+    theme(legend.position = "none",
+          plot.title = element_text(size = 14, hjust = 0.5))  # titolo città più grande
+}
+
+# Grafici principali (prima Bologna, poi Milano)
+p_bologna <- make_pie("Bologna")
+p_milan <- make_pie("Milan")
+
+# Dummy plot per creare legenda completa
+dummy <- ggplot(df, aes(x = "", y = Percentage, fill = Polymer)) +
+  geom_bar(stat = "identity") +
+  scale_fill_manual(values = polymer_colors) +
+  theme_void()
+
+legend <- get_legend(
+  dummy + guides(fill = guide_legend(
+    override.aes = list(color = "black", size = 5)
+  ))
+)
+
+# Combino le due torte affiancate più vicine
+combined <- plot_grid(
+  p_bologna, p_milan,
+  ncol = 2,
+  rel_widths = c(1,1),
+  align = "h"
+)
+
+# Titolo generale
+title <- ggdraw() + draw_label("Distribution of Microplastic Types per City", x = 0.5, hjust = 0.5, size = 16)
+
+# Combino titolo, grafici e legenda
+final_plot <- plot_grid(
+  title,
+  plot_grid(combined, legend, ncol = 2, rel_widths = c(3,1)),
+  ncol = 1,
+  rel_heights = c(0.1, 1)
+)
+
+print(final_plot)
+
