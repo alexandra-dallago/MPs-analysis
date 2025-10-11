@@ -33,7 +33,7 @@ ggplot(MP_by_body_part_city, aes(x = Body_Part, y = Total_MP, fill = City)) +
   theme_minimal() +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
-################################# MP PER PARTI DEL CORPO PER SITO #################################
+################################# MP PER PARTI DEL CORPO PER SITO (NON ABBIAMO CONSIDERATO)  #################################
 body_parts <- c("Head", "Torax", "Abdomen", "Legs", "Wings")
 
 site_colors <- c(
@@ -94,4 +94,4 @@ plot_bologna <- plot_city("Bologna")
 plot_milano <- plot_city("Milan")
 plot_bologna + plot_milano
 
-####### SIGNIFICATIVITA' #######
+
