@@ -1,0 +1,78 @@
+library(ggplot2)
+library(ggpubr)
+library(survival)
+library(survminer)
+library(RColorBrewer)
+library(viridisLite)
+library(viridis)
+library(dplyr)
+library(tidyr)
+library(powerSurvEpi)
+library(readxl)
+library(pals)
+
+
+# Duplica le righe in base al valore di Status
+SC_expanded <- mp[rep(seq_len(nrow(Survival_curves)), pmax(Survival_curves$Status, 1)), ]
+
+# Imposta Status = 1 per tutte le righe duplicate
+SC_expanded$Status[SC_expanded$Status >= 1] <- 1
+
+# Controlla il risultato
+View(SC_expanded)
+
+#analisi potenza
+SC_power=data.frame(Survival_curves)
+SC_power = powerCT(formula=Surv(Time, Status) ~ Group, dat = SC_power,
+                nE=75, nC=75, alpha=0.05, RR=5)
+SC_power
+
+
+#Funzione curva di sopravvivenza
+fit_SC <- survfit(Surv(Time, Status) ~ Group, data = SC_expanded)
+summary(fit_SC)
+fit_SC
+res_sum_SC <- surv_summary(fit_SC)
+head(res_sum_SC)
+
+#Grafico curva di sopravvivenza
+palette_colors <- colorRampPalette(polychrome(36))(48)
+
+tiff("Survival_curves.tiff",units = "in",res =300, width = 18, height = 14)
+mp_curves = ggsurvplot(fit_mp, pval = T, xlab = "Time (dpi)", 
+                       legend="bottom",censor.shape = NA,
+                       font.legend = list(size = 16),
+                       font.y = c(22, face = "bold"),
+                       font.x = c(22, face = "bold"),
+                       legend.title="",
+                       font.tickslab=22,palette = palette_colors)
+mp_curves
+
+#significatività curve di sopravvivenza
+survdiff(Surv(Time, Status) ~ Group, data = SC_expanded)
+
+#tukey test - significatività tra trattamenti
+Tukey_test <- pairwise_survdiff(Surv(Time, Status) ~ Group, data = SC_expanded)
+Tukey_test
+
+#cox regression correct
+Cox_reg<- coxph(Surv(Time, Status) ~ Group, data = SC_expanded)
+summary(Cox_reg)
+Cox_reg
+
+#res.cox <- coxph(Surv(Time, Status) ~ Group, data = mp)
+#summary(res.cox)
+#res.cox
+
+#cox regression 2
+Survival_curves2 = Survival_curves %>% 
+  pivot_wider(names_from = "Group", 
+              values_from="Status")
+Survival_curves2
+Survival_curves2[Survival_curves2 == is.na] <-0
+Survival_curves2[is.na(Survival_curves2)] <-0
+Survival_curves2
+
+Cox_reg2 <- coxph(Surv(Time) ~ C + F + N + M + FM + FN + MN + FMN , data = Survival_curves2)
+summary(Cox_reg2)
+Cox_reg2
