@@ -12,19 +12,19 @@ library(readxl)
 library(pals)
 
 # Duplica le righe in base al valore di Status
-SC_expanded <- Survival_curves[rep(seq_len(nrow(Survival_curves)), pmax(Survival_curves$Status, 1)), ]
+AP_expanded <- Analisi_potenza[rep(seq_len(nrow(Analisi_potenza)), pmax(Analisi_potenza$Status, 1)), ]
 
 # Imposta Status = 1 per tutte le righe duplicate
-SC_expanded$Status[SC_expanded$Status >= 1] <- 1
+AP_expanded$Status[AP_expanded$Status >= 1] <- 1
 
 # Controlla il risultato
-View(SC_expanded)
+View(AP_expanded)
 
 #analisi potenza
-SC_power=data.frame(Survival_curves)
-SC_power = powerCT(formula=Surv(Time, Status) ~ Group, dat = SC_power,
-                nE=75, nC=75, alpha=0.05, RR=5)
-SC_power
+AP_power=data.frame(AP_expanded)
+AP_power = powerCT(formula=Surv(Time, Status) ~ Group, dat = AP_expanded,
+                   nE=75, nC=75, alpha=0.05, RR=5)
+AP_power
 
 #Funzione curva di sopravvivenza
 fit_SC <- survfit(Surv(Time, Status) ~ Group, data = SC_expanded)
