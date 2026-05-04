@@ -1,3 +1,5 @@
+######################## GRAFICO A TORTA TIPOLOGIA MPS ########################
+
 library(dplyr)
 library(tidyr)
 library(ggplot2)
@@ -32,7 +34,7 @@ MP_city <- MP_city %>%
     Type == "F_Red"    ~ "Red Fiber",
     Type == "F_Blue"   ~ "Blue Fiber",
     Type == "F_Green"  ~ "Green Fiber",
-    Type == "F_Violet" ~ "Violet Fiber",
+    Type == "F_Violet" ~ "Violet Fragment",
     Type == "S_White"  ~ "White Fragment",
     Type == "S_Green"  ~ "Green Fragment",
     Type == "St_White" ~ "White Star",
@@ -42,19 +44,7 @@ MP_city <- MP_city %>%
   ))
 
 # -----------------------------
-# 4. Percentuali per città
-# -----------------------------
-MP_city <- MP_city %>%
-  group_by(City) %>%
-  mutate(Percent = Total / sum(Total) * 100) %>%
-  ungroup()
-
-# label dentro spicchio
-MP_city <- MP_city %>%
-  mutate(label = paste0(round(Percent, 1), "%"))
-
-# -----------------------------
-# 5. Ordine legenda
+# 4. Ordine legenda
 # -----------------------------
 levels_order <- MP_city %>%
   group_by(Type_label) %>%
@@ -66,7 +56,7 @@ MP_city <- MP_city %>%
   mutate(Type_label = factor(Type_label, levels = levels_order))
 
 # -----------------------------
-# 6. Colori
+# 5. Colori
 # -----------------------------
 type_colors <- c(
   "White Fiber" = "#F0F0F0",
@@ -74,7 +64,7 @@ type_colors <- c(
   "Red Fiber"   = "#E63946",
   "Blue Fiber"  = "#4D9DE0",
   "Green Fiber" = "#3CB043",
-  "Violet Fiber"= "#9966CC",
+  "Violet Fragment"= "#9966CC",
   "White Fragment" = "#708090",
   "Green Fragment" = "#B2D8B2",
   "White Star" = "#C080A1",
@@ -83,53 +73,71 @@ type_colors <- c(
 )
 
 # -----------------------------
-# 7. Split città
+# 6. Split città
 # -----------------------------
 MP_Bologna <- MP_city %>% filter(City == "Bologna")
 MP_Milano  <- MP_city %>% filter(City == "Milan")
 
 # -----------------------------
-# 8. Bologna plot
+# 7. Bologna (NO legenda)
 # -----------------------------
 Pie_Bologna <- ggplot(MP_Bologna,
                       aes(x = factor(1), y = Total, fill = Type_label)) +
   geom_bar(stat = "identity", width = 1, color = "black") +
   coord_polar("y") +
-  
-  geom_text(aes(label = label),
-            position = position_stack(vjust = 0.5),
-            size = 3) +
-  
   scale_fill_manual(values = type_colors) +
   theme_void() +
-  labs(title = "Bologna", fill = "Microplastic Type") +
+  labs(title = "Bologna") +
   theme(
-    legend.position = "right",
+    legend.position = "none",
     plot.title = element_text(face = "bold", size = 14)
   )
 
 # -----------------------------
-# 9. Milano plot
+# 8. Milano (NO legenda)
 # -----------------------------
 Pie_Milano <- ggplot(MP_Milano,
                      aes(x = factor(1), y = Total, fill = Type_label)) +
   geom_bar(stat = "identity", width = 1, color = "black") +
   coord_polar("y") +
-  
-  geom_text(aes(label = label),
-            position = position_stack(vjust = 0.5),
-            size = 3) +
-  
   scale_fill_manual(values = type_colors) +
   theme_void() +
-  labs(title = "Milan", fill = "Microplastic Type") +
+  labs(title = "Milan") +
   theme(
-    legend.position = "right",
+    legend.position = "none",
     plot.title = element_text(face = "bold", size = 14)
   )
 
 # -----------------------------
-# 10. Output finale
+# 9. LEGENDA (da Bologna con bordi neri)
 # -----------------------------
-plot_grid(Pie_Milano, Pie_Bologna, ncol = 2, align = "h")
+legend_plot <- ggplot(MP_Bologna,
+                      aes(x = factor(1), y = Total, fill = Type_label)) +
+  geom_bar(stat = "identity") +
+  scale_fill_manual(values = type_colors) +
+  theme_void() +
+  theme(
+    legend.position = "right"
+  ) +
+  guides(fill = guide_legend(
+    title = "Microplastic Type",
+    override.aes = list(
+      color = "black",
+      size = 1
+    )
+  ))
+
+legend <- get_legend(legend_plot)
+
+# -----------------------------
+# 10. OUTPUT FINALE
+# -----------------------------
+plot_grid(
+  Pie_Bologna,
+  Pie_Milano,
+  legend,
+  ncol = 3,
+  rel_widths = c(1, 1, 0.6),
+  align = "h"
+)
 
