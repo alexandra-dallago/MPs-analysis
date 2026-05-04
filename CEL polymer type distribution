@@ -3,59 +3,70 @@ library(ggplot2)
 library(cowplot)
 library(scales)
 
-# ---------------- PALETTE BASE ---------------- #
+#IMPORTA DATASET TABLE S5
+DB<-Table_S5
+# =========================================================
+# 🔴 LIVELLI
+# =========================================================
+
+poly_levels <- DB %>%
+    pull(`Polymer type`) %>%
+    unique() %>%
+    sort()
+
+cel_levels <- DB %>%
+    pull(`CEL Polymer type`) %>%
+    unique() %>%
+    sort()
+
+# =========================================================
+# 🔴 PALETTE
+# =========================================================
+
 base_colors <- alpha(c(
     "#66c2a5", "#fc8d62", "#8da0cb", "#e78ac3", "#a6d854",
     "#ffd92f", "#e5c494", "#b3b3b3", "#80b1d3", "#fdb462",
     "#bebada", "#ccebc5", "#d9d9d9"
 ), 0.8)
 
-# ---------------- PALETTE GLOBALI (FISSE) ---------------- #
-
-all_polymer_types <- sort(unique(DB$`Polymer type`))
-all_cel_types <- sort(unique(DB$`CEL Polymer type`))
-
 polymer_colors <- setNames(
-    base_colors[1:length(all_polymer_types)],
-    all_polymer_types
+    base_colors[1:length(poly_levels)],
+    poly_levels
 )
 
 cel_colors <- setNames(
-    alpha(base_colors[1:length(all_cel_types)], 0.5),
-    all_cel_types
+    alpha(base_colors[1:length(cel_levels)], 0.5),
+    cel_levels
 )
 
-# ---------------- POLYMER PLOT ---------------- #
-make_polymer_plot <- function(data, city_name){
+# =========================================================
+# 🔴 FUNZIONI PLOT
+# =========================================================
+
+make_polymer_plot <- function(city_name){
     
-    df <- data %>%
-        filter(!is.na(`Polymer type`),
-               City == city_name) %>%
+    df <- DB %>%
+        filter(City == city_name) %>%
         count(`Polymer type`) %>%
         mutate(perc = n / sum(n))
     
     ggplot(df, aes(x = "", y = perc, fill = `Polymer type`)) +
         geom_bar(stat = "identity", width = 1, color = "black") +
-        coord_polar("y", start = 0 * pi / 180) +
+        coord_polar("y") +
         scale_fill_manual(values = polymer_colors) +
         theme_void() +
-        labs(
-            title = paste("Polymer type\n", city_name)
-        ) +
+        labs(title = paste("Polymer type\n", city_name)) +
         theme(
-            legend.position = "left",   # 🔴 FIX
-            plot.title.position = "plot",
-            plot.title = element_text(hjust = 0.2)
+            legend.position = "none",
+            plot.title = element_text(hjust = 0.5)
         )
 }
 
-# ---------------- CEL POLYMER PLOT ---------------- #
-make_cel_plot <- function(data, city_name){
+make_cel_plot <- function(city_name){
     
-    df <- data %>%
-        filter(!is.na(`CEL Polymer type`),
-               `CEL Polymer type` != "0",
-               City == city_name) %>%
+    df <- DB %>%
+        filter(City == city_name) %>%
+        filter(`CEL Polymer type` != "-") %>%   # 👈 rimuove "-"
         count(`CEL Polymer type`) %>%
         mutate(perc = n / sum(n))
     
@@ -64,56 +75,88 @@ make_cel_plot <- function(data, city_name){
         coord_polar("y") +
         scale_fill_manual(values = cel_colors) +
         theme_void() +
-        labs(
-            title = paste("CEL Polymer type\n", city_name)
-        ) +
+        labs(title = paste("CEL Polymer type\n", city_name)) +
         theme(
-            legend.position = "left",   # 🔴 FIX
-            plot.title.position = "plot",
-            plot.title = element_text(hjust = 0.2)
+            legend.position = "none",
+            plot.title = element_text(hjust = 0.5)
         )
 }
 
 # =========================================================
-# 🔴 BOLOGNA (VERTICALE)
-# ========================================================= #
+# 🔴 CREA PLOT
+# =========================================================
 
-b_poly <- make_polymer_plot(DB, "Bologna")
-b_cel  <- make_cel_plot(DB, "Bologna")
+b_poly <- make_polymer_plot("Bologna")
+m_poly <- make_polymer_plot("Milan")
 
-plot_bologna <- plot_grid(
-    b_poly,
-    b_cel,
-    ncol = 1,
-    align = "v",
-    rel_heights = c(1, 0.8)
+b_cel  <- make_cel_plot("Bologna")
+m_cel  <- make_cel_plot("Milan")
+
+# =========================================================
+# 🔴 LEGENDE
+# =========================================================
+
+dummy_poly <- ggplot(
+    DB %>% count(`Polymer type`),
+    aes(x = "", y = n, fill = `Polymer type`)
+) +
+    geom_bar(stat = "identity") +
+    scale_fill_manual(values = polymer_colors) +
+    theme_void()
+
+legend_poly <- get_legend(
+    dummy_poly +
+        guides(fill = guide_legend(
+            override.aes = list(color = "black", size = 5)
+        ))
+)
+
+dummy_cel <- ggplot(
+    DB %>%
+        filter(`CEL Polymer type` != "-") %>%   # 👈 rimuove "-" anche dalla legenda
+        count(`CEL Polymer type`),
+    aes(x = "", y = n, fill = `CEL Polymer type`)
+) +
+    geom_bar(stat = "identity") +
+    scale_fill_manual(values = cel_colors) +
+    theme_void()
+
+legend_cel <- get_legend(
+    dummy_cel +
+        guides(fill = guide_legend(
+            override.aes = list(color = "black", size = 5)
+        ))
 )
 
 # =========================================================
-# 🔴 MILAN (VERTICALE)
-# ========================================================= #
-
-m_poly <- make_polymer_plot(DB, "Milan")
-m_cel  <- make_cel_plot(DB, "Milan")
-
-plot_milan <- plot_grid(
-    m_poly,
-    m_cel,
-    ncol = 1,
-    align = "v",
-    rel_heights = c(1, 0.8)
-)
-
+# 🔴 LAYOUT
 # =========================================================
-# 🔴 FIGURA FINALE
-# ========================================================= #
 
-final_plot <- plot_grid(
-    plot_bologna,
-    plot_milan,
+# Riga Polymer
+poly_row <- plot_grid(b_poly, m_poly, ncol = 2)
+
+poly_block <- plot_grid(
+    poly_row,
+    legend_poly,
     ncol = 2,
-    rel_widths = c(1, 1)
+    rel_widths = c(3, 1)
 )
 
-# ---------------- OUTPUT ---------------- #
+# Riga CEL
+cel_row <- plot_grid(b_cel, m_cel, ncol = 2)
+
+cel_block <- plot_grid(
+    cel_row,
+    legend_cel,
+    ncol = 2,
+    rel_widths = c(3, 1)
+)
+
+# Figura finale
+final_plot <- plot_grid(
+    poly_block,
+    cel_block,
+    ncol = 1
+)
+
 final_plot
