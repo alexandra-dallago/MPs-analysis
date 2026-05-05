@@ -59,11 +59,11 @@ MP_city <- MP_city %>%
 # 5. Colori
 # -----------------------------
 type_colors <- c(
-  "White Fiber" = "#F0F0F0",
-  "Black Fiber" = "#4D4D4D",
-  "Red Fiber"   = "#E63946",
-  "Blue Fiber"  = "#4D9DE0",
-  "Green Fiber" = "#3CB043",
+  "White Fibre" = "#F0F0F0",
+  "Black Fibre" = "#4D4D4D",
+  "Red Fibre"   = "#E63946",
+  "Blue Fibre"  = "#4D9DE0",
+  "Green Fibre" = "#3CB043",
   "Violet Fragment"= "#9966CC",
   "White Fragment" = "#708090",
   "Green Fragment" = "#B2D8B2",
