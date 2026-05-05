@@ -29,11 +29,11 @@ MP_city <- DB_MP %>%
 # -----------------------------
 MP_city <- MP_city %>%
   mutate(Type_label = case_when(
-    Type == "F_White"  ~ "White Fiber",
-    Type == "F_Black"  ~ "Black Fiber",
-    Type == "F_Red"    ~ "Red Fiber",
-    Type == "F_Blue"   ~ "Blue Fiber",
-    Type == "F_Green"  ~ "Green Fiber",
+    Type == "F_White"  ~ "White Fibre",
+    Type == "F_Black"  ~ "Black Fibre",
+    Type == "F_Red"    ~ "Red Fibre",
+    Type == "F_Blue"   ~ "Blue Fibre",
+    Type == "F_Green"  ~ "Green Fibre",
     Type == "F_Violet" ~ "Violet Fragment",
     Type == "S_White"  ~ "White Fragment",
     Type == "S_Green"  ~ "Green Fragment",
